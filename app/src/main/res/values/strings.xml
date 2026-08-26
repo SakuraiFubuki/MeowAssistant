@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">喵喵助手</string>
+    <string name="accessibility_service_description">所有文本处理（规则替换、断句追加、颜文字）都是内存中的本地字符串操作，输入框内容只读取→改写→写回，不落盘、不上传，无任何联网、数据盗取类权限或代码。</string>
 </resources>

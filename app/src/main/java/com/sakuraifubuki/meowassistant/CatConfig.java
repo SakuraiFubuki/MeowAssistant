@@ -1,4 +1,4 @@
-package com.example.meowassistant;
+package com.sakuraifubuki.meowassistant;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -18,6 +18,9 @@ public class CatConfig {
     public static final String MODE_REALTIME = "realtime";
     public static final String KEY_REALTIME_DELAY = "realtime_delay";
     public static final long DEFAULT_REALTIME_DELAY = 50L;
+    public static final String KEY_KEEP_ALIVE = "keep_alive";
+    public static final String KEY_AUTO_START = "auto_start";
+    public static final String KEY_PASSWORD_PROTECT = "password_protect";
     private static final String PREFS_NAME = "cat_config";
 
     public static class Rule {
@@ -40,6 +43,9 @@ public class CatConfig {
     public boolean enableRandomEmoticon = true;
     public String processingMode = MODE_PUNCTUATION;
     public long realtimeDelay = DEFAULT_REALTIME_DELAY;
+    public boolean enableKeepAlive = false;
+    public boolean enableAutoStart = false;
+    public boolean enablePasswordProtect = true;
     public String[] customEmoticons = new String[0];
     public List<Rule> rules = new ArrayList<>();
 
@@ -94,6 +100,9 @@ public class CatConfig {
         cfg.enableRandomEmoticon = sp.getBoolean(KEY_ENABLE_EMOTICON, true);
         cfg.processingMode = sp.getString(KEY_PROCESSING_MODE, MODE_PUNCTUATION);
         cfg.realtimeDelay = sp.getLong(KEY_REALTIME_DELAY, DEFAULT_REALTIME_DELAY);
+        cfg.enableKeepAlive = sp.getBoolean(KEY_KEEP_ALIVE, false);
+        cfg.enableAutoStart = sp.getBoolean(KEY_AUTO_START, false);
+        cfg.enablePasswordProtect = sp.getBoolean(KEY_PASSWORD_PROTECT, true);
 
         String rulesStr = sp.getString(KEY_RULES, "");
         if (rulesStr != null && !rulesStr.trim().isEmpty()) {
@@ -131,6 +140,9 @@ public class CatConfig {
         ed.putBoolean(KEY_ENABLE_EMOTICON, this.enableRandomEmoticon);
         ed.putString(KEY_PROCESSING_MODE, this.processingMode == null ? MODE_PUNCTUATION : this.processingMode);
         ed.putLong(KEY_REALTIME_DELAY, this.realtimeDelay);
+        ed.putBoolean(KEY_KEEP_ALIVE, this.enableKeepAlive);
+        ed.putBoolean(KEY_AUTO_START, this.enableAutoStart);
+        ed.putBoolean(KEY_PASSWORD_PROTECT, this.enablePasswordProtect);
         ed.putString(KEY_RULES, rulesToString(this.rules));
         ed.putString(KEY_CUSTOM_EMOTICONS, join(this.customEmoticons, "\n"));
         ed.apply();

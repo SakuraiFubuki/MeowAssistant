@@ -1,13 +1,17 @@
-package com.example.meowassistant;
+package com.sakuraifubuki.meowassistant;
 
+import android.Manifest;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityManager;
@@ -24,7 +28,10 @@ import java.util.List;
 
 public class MainActivity extends Activity {
     private CheckBox cbAppend;
+    private CheckBox cbAutoStart;
     private CheckBox cbEmoticon;
+    private CheckBox cbKeepAlive;
+    private CheckBox cbPasswordProtect;
     private CatConfig config;
     private EditText etAppendText;
     private EditText etCustomEmoticons;
@@ -34,6 +41,7 @@ public class MainActivity extends Activity {
     private CheckBox rbRealtime;
     private TextView statusText;
     private Button toggleButton;
+    private Button batteryBtn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,6 +98,23 @@ public class MainActivity extends Activity {
         root.addView(this.toggleButton);
         root.addView(divider());
 
+        Button saveBtn = new Button(this);
+        saveBtn.setText("保存设置");
+        saveBtn.setTextSize(16.0f);
+        saveBtn.setTextColor(-1);
+        saveBtn.setBackgroundColor(Color.rgb(255, 111, 0));
+        saveBtn.setPadding(40, 16, 40, 16);
+        LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(-1, -2);
+        saveLp.setMargins(0, 16, 0, 0);
+        saveBtn.setLayoutParams(saveLp);
+        saveBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                MainActivity.this.saveConfig();
+            }
+        });
+        root.addView(saveBtn);
+
         TextView modeTitle = new TextView(this);
         modeTitle.setText("处理模式");
         modeTitle.setTextSize(18.0f);
@@ -108,7 +133,7 @@ public class MainActivity extends Activity {
         this.rbPunctuation.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                MainActivity.this.m0lambda$onCreate$0$comexamplemeowassistantMainActivity(buttonView, isChecked);
+                MainActivity.this.m0lambda$onCreate$0$comsakuraifubukimeowassistantMainActivity(buttonView, isChecked);
             }
         });
         modeRow.addView(this.rbPunctuation);
@@ -120,7 +145,7 @@ public class MainActivity extends Activity {
         this.rbRealtime.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                MainActivity.this.m1lambda$onCreate$1$comexamplemeowassistantMainActivity(buttonView, isChecked);
+                MainActivity.this.m1lambda$onCreate$1$comsakuraifubukimeowassistantMainActivity(buttonView, isChecked);
             }
         });
         modeRow.addView(this.rbRealtime);
@@ -131,32 +156,16 @@ public class MainActivity extends Activity {
         modeHint.setTextColor(Color.rgb(161, 136, 127));
         modeHint.setPadding(0, 0, 0, 16);
         root.addView(modeHint);
-        LinearLayout delayRow = new LinearLayout(this);
-        delayRow.setOrientation(0);
-        delayRow.setGravity(16);
-        delayRow.setPadding(0, 0, 0, 8);
         this.etRealtimeDelay = new EditText(this);
         this.etRealtimeDelay.setInputType(2);
         this.etRealtimeDelay.setBackgroundColor(-1);
         this.etRealtimeDelay.setPadding(16, 12, 16, 12);
         this.etRealtimeDelay.setHint("实时处理检测延迟(ms)");
         this.etRealtimeDelay.setText(String.valueOf(this.config.realtimeDelay));
-        delayRow.addView(this.etRealtimeDelay, new LinearLayout.LayoutParams(0, -2, 1.0f));
-        Button btnResetDelay = new Button(this);
-        btnResetDelay.setText("恢复默认值");
-        btnResetDelay.setTextSize(13.0f);
-        LinearLayout.LayoutParams btnDelayLp = new LinearLayout.LayoutParams(-2, -2);
-        btnDelayLp.setMargins(8, 0, 0, 0);
-        btnResetDelay.setLayoutParams(btnDelayLp);
-        btnResetDelay.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                MainActivity.this.etRealtimeDelay.setText(String.valueOf(CatConfig.DEFAULT_REALTIME_DELAY));
-                Toast.makeText(MainActivity.this, "已恢复默认值 " + CatConfig.DEFAULT_REALTIME_DELAY + " ms，点击保存后生效", 0).show();
-            }
-        });
-        delayRow.addView(btnResetDelay);
-        root.addView(delayRow);
+        LinearLayout.LayoutParams delayLp = new LinearLayout.LayoutParams(-1, -2);
+        delayLp.setMargins(0, 0, 0, 4);
+        this.etRealtimeDelay.setLayoutParams(delayLp);
+        root.addView(this.etRealtimeDelay);
         TextView delayHint = new TextView(this);
         delayHint.setText("实时处理检测延迟：两次检测之间的最小间隔（毫秒）");
         delayHint.setTextSize(11.0f);
@@ -183,6 +192,30 @@ public class MainActivity extends Activity {
         this.etAppendText.setLayoutParams(etLp1);
         root.addView(this.etAppendText);
         this.cbEmoticon = addCheckbox(root, "句末颜文字", "在消息末尾附加随机颜文字", this.config.enableRandomEmoticon);
+        this.cbPasswordProtect = addCheckbox(root, "密码保护", "密码、可见密码、数字密码框不会被读取或改写", this.config.enablePasswordProtect);
+        this.cbKeepAlive = addCheckbox(root, "前台服务保活", "显示常驻通知保持服务存活，降低被系统清理的概率", this.config.enableKeepAlive);
+        this.cbAutoStart = addCheckbox(root, "开机/更新后恢复", "开机或应用更新后自动恢复保活服务（需先开启前台服务保活）", this.config.enableAutoStart);
+        this.batteryBtn = new Button(this);
+        this.batteryBtn.setText("电池优化设置");
+        this.batteryBtn.setTextSize(14.0f);
+        this.batteryBtn.setTextColor(-1);
+        this.batteryBtn.setPadding(40, 14, 40, 14);
+        LinearLayout.LayoutParams batteryLp = new LinearLayout.LayoutParams(-1, -2);
+        batteryLp.setMargins(0, 12, 0, 0);
+        this.batteryBtn.setLayoutParams(batteryLp);
+        this.batteryBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                MainActivity.this.openBatterySettings();
+            }
+        });
+        root.addView(this.batteryBtn);
+        TextView batteryHint = new TextView(this);
+        batteryHint.setText("建议关闭本应用的电池优化，避免后台服务被系统限制");
+        batteryHint.setTextSize(11.0f);
+        batteryHint.setTextColor(Color.rgb(161, 136, 127));
+        batteryHint.setPadding(0, 8, 0, 8);
+        root.addView(batteryHint);
 
         TextView ruleTitle = new TextView(this);
         ruleTitle.setText("文本替换规则");
@@ -229,38 +262,23 @@ public class MainActivity extends Activity {
         this.etCustomEmoticons.setText(joinLines(this.config.customEmoticons));
         root.addView(this.etCustomEmoticons);
 
-        Button saveBtn = new Button(this);
-        saveBtn.setText("保存设置");
-        saveBtn.setTextSize(16.0f);
-        saveBtn.setTextColor(-1);
-        saveBtn.setBackgroundColor(Color.rgb(255, 111, 0));
-        saveBtn.setPadding(40, 16, 40, 16);
-        LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(-1, -2);
-        saveLp.setMargins(0, 16, 0, 0);
-        saveBtn.setLayoutParams(saveLp);
-        saveBtn.setOnClickListener(new View.OnClickListener() {
+
+        Button resetBtn = new Button(this);
+        resetBtn.setText("恢复默认配置");
+        resetBtn.setTextSize(14.0f);
+        resetBtn.setTextColor(Color.rgb(255, 111, 0));
+        resetBtn.setBackgroundColor(-1);
+        resetBtn.setPadding(40, 14, 40, 14);
+        LinearLayout.LayoutParams resetLp = new LinearLayout.LayoutParams(-1, -2);
+        resetLp.setMargins(0, 12, 0, 0);
+        resetBtn.setLayoutParams(resetLp);
+        resetBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                MainActivity.this.saveConfig();
+                MainActivity.this.restoreDefaultConfig();
             }
         });
-        root.addView(saveBtn);
-        Button testBtn = new Button(this);
-        testBtn.setText("测试当前配置");
-        testBtn.setTextSize(14.0f);
-        testBtn.setTextColor(Color.rgb(255, 111, 0));
-        testBtn.setBackgroundColor(-1);
-        testBtn.setPadding(40, 14, 40, 14);
-        LinearLayout.LayoutParams testLp = new LinearLayout.LayoutParams(-1, -2);
-        testLp.setMargins(0, 12, 0, 0);
-        testBtn.setLayoutParams(testLp);
-        testBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                MainActivity.this.showTestDialog();
-            }
-        });
-        root.addView(testBtn);
+        root.addView(resetBtn);
         TextView hint = new TextView(this);
         hint.setText("提示：修改设置后请点击保存，服务下次触发时自动加载");
         hint.setTextSize(11.0f);
@@ -276,7 +294,7 @@ public class MainActivity extends Activity {
         githubLink.setPadding(16, 0, 16, 8);
         root.addView(githubLink);
         TextView githubFree = new TextView(this);
-        githubFree.setText("本软件免费开源\n严禁将本软件或其任何衍生版本用于商业盈利活动等直接或间接获利行为");
+        githubFree.setText("本软件遵循[AGPL-3.0]协议免费开源\n严禁将本软件或其任何衍生版本用于商业盈利活动等直接或间接获利行为");
         githubFree.setTextSize(11.0f);
         githubFree.setTextColor(Color.rgb(161, 136, 127));
         githubFree.setGravity(17);
@@ -287,13 +305,13 @@ public class MainActivity extends Activity {
         setContentView(scrollView);
     }
 
-    void m0lambda$onCreate$0$comexamplemeowassistantMainActivity(CompoundButton buttonView, boolean isChecked) {
+    void m0lambda$onCreate$0$comsakuraifubukimeowassistantMainActivity(CompoundButton buttonView, boolean isChecked) {
         if (isChecked) {
             this.rbRealtime.setChecked(false);
         }
     }
 
-    void m1lambda$onCreate$1$comexamplemeowassistantMainActivity(CompoundButton buttonView, boolean isChecked) {
+    void m1lambda$onCreate$1$comsakuraifubukimeowassistantMainActivity(CompoundButton buttonView, boolean isChecked) {
         if (isChecked) {
             this.rbPunctuation.setChecked(false);
         }
@@ -303,6 +321,17 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         updateServiceStatus();
+        updateBatteryStatus();
+        CatConfig fresh = CatConfig.load(this);
+        if (fresh != null && this.config != null) {
+            this.config.enableKeepAlive = fresh.enableKeepAlive;
+            if (this.cbKeepAlive != null) {
+                this.cbKeepAlive.setChecked(fresh.enableKeepAlive);
+            }
+        }
+        if (this.config != null && this.config.enableKeepAlive) {
+            KeepAliveService.start(this);
+        }
     }
 
     private void updateServiceStatus() {
@@ -349,6 +378,83 @@ public class MainActivity extends Activity {
             startActivity(intent);
         } catch (Exception e) {
             Toast.makeText(this, "无法打开设置", 0).show();
+        }
+    }
+
+    public void openBatterySettings() {
+        try {
+            if (!isIgnoringBatteryOptimizations() && Build.VERSION.SDK_INT >= 23) {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+                return;
+            }
+        } catch (Exception e) {
+        }
+        try {
+            startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+        } catch (Exception e2) {
+            Toast.makeText(this, "无法打开电池优化设置", 0).show();
+        }
+    }
+
+    private boolean isIgnoringBatteryOptimizations() {
+        try {
+            if (Build.VERSION.SDK_INT >= 23) {
+                PowerManager pm = (PowerManager) getSystemService("power");
+                if (pm != null) {
+                    return pm.isIgnoringBatteryOptimizations(getPackageName());
+                }
+            }
+        } catch (Exception e) {
+        }
+        return false;
+    }
+
+    private void updateBatteryStatus() {
+        if (this.batteryBtn == null) {
+            return;
+        }
+        if (isIgnoringBatteryOptimizations()) {
+            this.batteryBtn.setText("电池优化已关闭（点击可恢复）");
+            this.batteryBtn.setBackgroundColor(Color.rgb(165, 214, 167));
+        } else {
+            this.batteryBtn.setText("前往关闭电池优化");
+            this.batteryBtn.setBackgroundColor(Color.rgb(255, 111, 0));
+        }
+    }
+
+    private void applyKeepAlive() {
+        if (this.config.enableKeepAlive) {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
+            }
+            KeepAliveService.start(this);
+        } else {
+            KeepAliveService.stop(this);
+        }
+    }
+
+    public void restoreDefaultConfig() {
+        try {
+            CatConfig defaults = new CatConfig();
+            this.config = defaults;
+            this.cbAppend.setChecked(defaults.enableAppend);
+            this.etAppendText.setText(defaults.appendText);
+            this.cbEmoticon.setChecked(defaults.enableRandomEmoticon);
+            this.cbPasswordProtect.setChecked(defaults.enablePasswordProtect);
+            this.cbKeepAlive.setChecked(defaults.enableKeepAlive);
+            this.cbAutoStart.setChecked(defaults.enableAutoStart);
+            this.rbPunctuation.setChecked(CatConfig.MODE_PUNCTUATION.equals(defaults.processingMode));
+            this.rbRealtime.setChecked(CatConfig.MODE_REALTIME.equals(defaults.processingMode));
+            this.etRealtimeDelay.setText(String.valueOf(defaults.realtimeDelay));
+            this.etRules.setText(CatConfig.rulesToString(defaults.rules));
+            this.etCustomEmoticons.setText(joinLines(defaults.customEmoticons));
+            defaults.save(this);
+            applyKeepAlive();
+            Toast.makeText(this, "已恢复默认配置", 0).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "恢复失败: " + e.getMessage(), 0).show();
         }
     }
 
@@ -415,6 +521,9 @@ public class MainActivity extends Activity {
             String append = this.etAppendText.getText().toString().trim();
             this.config.appendText = append.isEmpty() ? "喵" : append;
             this.config.enableRandomEmoticon = this.cbEmoticon.isChecked();
+            this.config.enablePasswordProtect = this.cbPasswordProtect.isChecked();
+            this.config.enableKeepAlive = this.cbKeepAlive.isChecked();
+            this.config.enableAutoStart = this.cbAutoStart.isChecked();
             this.config.processingMode = this.rbRealtime.isChecked() ? CatConfig.MODE_REALTIME : CatConfig.MODE_PUNCTUATION;
             String delayText = this.etRealtimeDelay.getText() == null ? "" : this.etRealtimeDelay.getText().toString().trim();
             long delay = CatConfig.DEFAULT_REALTIME_DELAY;
@@ -451,31 +560,14 @@ public class MainActivity extends Activity {
             }
             this.config.customEmoticons = list.toArray(new String[0]);
             this.config.save(this);
+            applyKeepAlive();
             Toast.makeText(this, "设置已保存", 0).show();
         } catch (Exception e) {
             Toast.makeText(this, "保存失败: " + e.getMessage(), 0).show();
         }
     }
 
-    public void showTestDialog() {
-        try {
-            saveConfig();
-            CatConfig testCfg = CatConfig.load(this);
-            String sample = "今天我很好，你准备好了吗？我们去公园玩吧";
-            String processed = TextProcessor.process(sample, testCfg);
-            String msg = "断句追加：" + yn(testCfg.enableAppend) + "（" + (testCfg.appendText == null ? "" : testCfg.appendText) + "）"
-                    + "\n句末颜文字：" + yn(testCfg.enableRandomEmoticon)
-                    + "\n替换规则：" + testCfg.rules.size() + " 条"
-                    + "\n自定义颜文字：" + (testCfg.customEmoticons.length > 0 ? testCfg.customEmoticons.length + "个" : "使用内置")
-                    + "\n\n原始：\n" + sample
-                    + "\n\n处理后：\n" + processed;
-            new AlertDialog.Builder(this).setTitle("预览").setMessage(msg).setPositiveButton("好的", (DialogInterface.OnClickListener) null).show();
-        } catch (Exception e) {
-            Toast.makeText(this, "测试失败: " + e.getMessage(), 0).show();
-        }
-    }
 
-    private String yn(boolean b) {
-        return b ? "开" : "关";
-    }
+
+
 }

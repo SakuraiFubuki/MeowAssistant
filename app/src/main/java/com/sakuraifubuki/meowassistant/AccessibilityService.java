@@ -1,8 +1,7 @@
-package com.example.meowassistant;
+package com.sakuraifubuki.meowassistant;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import java.util.Arrays;
@@ -12,7 +11,6 @@ import java.util.regex.Pattern;
 public class AccessibilityService extends android.accessibilityservice.AccessibilityService {
     private static final String ID_INPUT = "com.tencent.mobileqq:id/input";
     private static final String ID_SEND = "com.tencent.mobileqq:id/send_btn";
-    private static final String TAG = "CatSvc";
     private CatConfig cachedConfig;
     private String userOriginal = "";
     private String lastSet = "";
@@ -42,7 +40,6 @@ public class AccessibilityService extends android.accessibilityservice.Accessibi
             if (src != null) {
                 String id = src.getViewIdResourceName();
                 if (ID_SEND.equals(id)) {
-                    Log.d(TAG, "点击发送，兜底处理");
                     doProcess(true);
                 }
                 src.recycle();
@@ -73,6 +70,10 @@ public class AccessibilityService extends android.accessibilityservice.Accessibi
             if (inp == null) {
                 return;
             }
+            if (cfg.enablePasswordProtect && inp.isPassword()) {
+                inp.recycle();
+                return;
+            }
             CharSequence cs = inp.getText();
             inp.recycle();
             if (cs == null || cs.length() == 0) {
@@ -80,7 +81,6 @@ public class AccessibilityService extends android.accessibilityservice.Accessibi
             }
             String raw = cs.toString().trim();
             if (!raw.isEmpty() && isPunctuationEnding(raw)) {
-                Log.d(TAG, "标点触发: " + raw);
                 doProcess(false);
             }
         }
@@ -113,6 +113,17 @@ public class AccessibilityService extends android.accessibilityservice.Accessibi
             this.processing = false;
             return;
         }
+        CatConfig cfg = this.cachedConfig;
+        if (cfg == null) {
+            cfg = CatConfig.load(this);
+            this.cachedConfig = cfg;
+        }
+        if (cfg.enablePasswordProtect && inp.isPassword()) {
+            inp.recycle();
+            root.recycle();
+            this.processing = false;
+            return;
+        }
         CharSequence cs = inp.getText();
         if (cs == null || cs.length() == 0) {
             inp.recycle();
@@ -131,15 +142,9 @@ public class AccessibilityService extends android.accessibilityservice.Accessibi
             this.lastSet = "";
             return;
         }
-        CatConfig cfg = this.cachedConfig;
-        if (cfg == null) {
-            cfg = CatConfig.load(this);
-            this.cachedConfig = cfg;
-        }
         long now = System.currentTimeMillis();
         long j = this.lastWriteTime;
         if (j > 0 && now - j < 600 && raw.equals(this.lastSet)) {
-            Log.d(TAG, "写入回显跳过");
             this.lastWriteTime = 0L;
             inp.recycle();
             root.recycle();
@@ -149,22 +154,17 @@ public class AccessibilityService extends android.accessibilityservice.Accessibi
         boolean isRealtime = CatConfig.MODE_REALTIME.equals(cfg.processingMode);
         if (!isRealtime && this.lastSet.isEmpty()) {
             this.userOriginal = stripAll(raw, cfg);
-            Log.d(TAG, "标点首次剥离: " + this.userOriginal);
         } else if (this.lastSet.isEmpty() || !raw.startsWith(this.lastSet)) {
             if (this.lastSet.isEmpty()) {
                 this.userOriginal = stripAll(raw, cfg);
-                Log.d(TAG, "首条剥离: " + this.userOriginal);
             } else {
                 this.userOriginal = stripAll(raw, cfg);
-                Log.d(TAG, "不匹配剥离: " + this.userOriginal);
             }
         } else {
             String added = raw.substring(this.lastSet.length());
             this.userOriginal += added;
-            Log.d(TAG, "前缀增量: +" + added + "  userOriginal=" + this.userOriginal);
         }
         if (this.userOriginal.isEmpty()) {
-            Log.d(TAG, "原文为空，跳过");
             inp.recycle();
             root.recycle();
             this.processing = false;
@@ -176,7 +176,6 @@ public class AccessibilityService extends android.accessibilityservice.Accessibi
         }
         String target = TextProcessor.process(this.userOriginal, effectiveCfg);
         if (!target.equals(raw)) {
-            Log.d(TAG, "写入: raw=" + raw + "  userOriginal=" + this.userOriginal + "  target=" + target);
             boolean ok = setText(inp, target);
             if (ok) {
                 this.lastSet = target;
