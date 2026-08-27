@@ -114,6 +114,13 @@ public class MainActivity extends Activity {
             }
         });
         root.addView(saveBtn);
+        TextView hint = new TextView(this);
+        hint.setText("提示：修改设置后请点击保存，服务下次触发时自动加载");
+        hint.setTextSize(11.0f);
+        hint.setTextColor(Color.rgb(161, 136, 127));
+        hint.setGravity(17);
+        hint.setPadding(16, 12, 16, 8);
+        root.addView(hint);
 
         TextView modeTitle = new TextView(this);
         modeTitle.setText("处理模式");
@@ -279,13 +286,6 @@ public class MainActivity extends Activity {
             }
         });
         root.addView(resetBtn);
-        TextView hint = new TextView(this);
-        hint.setText("提示：修改设置后请点击保存，服务下次触发时自动加载");
-        hint.setTextSize(11.0f);
-        hint.setTextColor(Color.rgb(161, 136, 127));
-        hint.setGravity(17);
-        hint.setPadding(16, 36, 16, 8);
-        root.addView(hint);
         TextView githubLink = new TextView(this);
         githubLink.setText("项目地址：github.com/SakuraiFubuki/MeowAssistant");
         githubLink.setTextSize(11.0f);
@@ -300,6 +300,13 @@ public class MainActivity extends Activity {
         githubFree.setGravity(17);
         githubFree.setPadding(16, 0, 16, 8);
         root.addView(githubFree);
+        TextView noRedistribute = new TextView(this);
+        noRedistribute.setText("严禁将本软件进行二次分发!");
+        noRedistribute.setTextSize(11.0f);
+        noRedistribute.setTextColor(Color.rgb(161, 136, 127));
+        noRedistribute.setGravity(17);
+        noRedistribute.setPadding(16, 0, 16, 8);
+        root.addView(noRedistribute);
 
         scrollView.addView(root);
         setContentView(scrollView);
